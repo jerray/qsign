@@ -1,6 +1,12 @@
 # Qsign
 
+[![Build Status](https://travis-ci.org/jerray/qsign.svg?branch=master)](https://travis-ci.org/jerray/qsign)
+
 Generate signature for Golang struct value.
+
+## Requirements
+
+* Go version >= 1.8
 
 ## Signing Method
 
