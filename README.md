@@ -57,35 +57,20 @@ data := struct {
 	DeviceInfo string `qsign:"device_info"`
 	Body       string `qsign:"body"`
 	NonceStr   string `qsign:"nonce_str"`
-    IgnoreMe   string `qsign:"-"`
+	IgnoreMe   string `qsign:"-"`
 }{
 	AppId:      "wxd930ea5d5a258f4f",
 	MchId:      10000100,
 	DeviceInfo: "1000",
 	Body:       "test",
 	NonceStr:   "ibuaiVcKdpRxkhJA",
-    IgnoreMe:   "won't be used to generate digest",
+	IgnoreMe:   "won't be used to generate digest",
 }
 
 q := qsign.NewQsign(&qsign.Options{
 	SuffixGenerator: func() string {
-    	return "&key=192006250b4c09247ec02edce69f6a2d"
-    },
-
-	// The default filter
-	// Filter: func(key, value string) {
-	// 	return len(value) > 0
-	// },
-
-	// To use a hash.Hash other than md5
-	// Hasher: func() hash.Hash {
-	// 	return sha256.New()
-	// },
-
-	// To use a encoding other than hex
-	// Encoder: func() qsign.Encoding {
-	// 	return base64.StdEncoding
-	// },
+		return "&key=192006250b4c09247ec02edce69f6a2d"
+	},
 })
 
 signature, _ := q.Sign(data)
@@ -95,7 +80,7 @@ fmt.Printf("%s", string(signature))
 
 ## Limitations
 
-Struct type field, Array type field or Slice type field is not supported.
+Struct, Array and Slice types of field are not supported.
 But if a field's type has a method `String() string`, Qsign will treat it as string field.
 
 ## License
