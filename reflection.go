@@ -11,10 +11,11 @@ import (
 type field struct {
 	name       string
 	value      string
-	idx        int
+	idx        []int
 	stringable bool
 }
 
+// stringable interface is used to check if a type has String() function.
 type stringable interface {
 	String() string
 }
@@ -26,30 +27,47 @@ var (
 	typeOfStringable = reflect.TypeOf((*stringable)(nil)).Elem()
 )
 
-// getStructValues
-func getStructValues(v interface{}) []*field {
+// getStructValues parses interface v, returns its field list with fields' string value.
+func getStructValues(v interface{}) (vs []*field) {
+	vs = []*field{}
+
 	val := reflect.ValueOf(v)
-	vs := []*field{}
+	for val.Kind() == reflect.Interface || val.Kind() == reflect.Ptr {
+		if val.IsNil() {
+			return
+		}
+		val = val.Elem()
+	}
+
+	if !val.IsValid() {
+		return
+	}
 
 	fields := parseStruct(val.Type())
 
 	for _, f := range fields {
-		value := getStringValue(val.Field(f.idx), f.stringable)
+		value := getStringValue(val, f.idx, f.stringable)
 		vs = append(vs, &field{
 			name:  f.name,
 			value: value,
 		})
 	}
 
-	return vs
+	return
 }
 
-func getStringValue(val reflect.Value, isStringable bool) (r string) {
+// getStringValue returns the string value of val. If depth is great than 0, val must be a struct,
+// it will find string value from the next depth level.
+func getStringValue(val reflect.Value, depth []int, isStringable bool) (r string) {
 	for val.Kind() == reflect.Interface || val.Kind() == reflect.Ptr {
 		if val.IsNil() {
 			return r
 		}
 		val = val.Elem()
+	}
+
+	if len(depth) > 0 {
+		return getStringValue(val.Field(depth[0]), depth[1:], isStringable)
 	}
 
 	if isStringable {
@@ -70,7 +88,7 @@ func getStringValue(val reflect.Value, isStringable bool) (r string) {
 	return r
 }
 
-// parseStruct
+// parseStruct parses input type, store its field list in a map for use in the next time.
 func parseStruct(typ reflect.Type) []*field {
 	typeInfoLock.RLock()
 	fields, ok := typeInfoMap[typ]
@@ -79,7 +97,7 @@ func parseStruct(typ reflect.Type) []*field {
 		return fields
 	}
 
-	fields = parseFieldsFromType(typ)
+	fields = parseFieldsFromType(typ, []int{})
 	sort.Slice(fields, func(i, j int) bool {
 		return fields[i].name < fields[j].name
 	})
@@ -90,8 +108,8 @@ func parseStruct(typ reflect.Type) []*field {
 	return fields
 }
 
-// parseFieldsFromType
-func parseFieldsFromType(typ reflect.Type) []*field {
+// parseFieldsFromType parses the input type, returns its field list.
+func parseFieldsFromType(typ reflect.Type, idx []int) []*field {
 	res := []*field{}
 	typ = findFinalType(typ)
 
@@ -99,10 +117,10 @@ func parseFieldsFromType(typ reflect.Type) []*field {
 		n := typ.NumField()
 		for i := 0; i < n; i++ {
 			f := typ.Field(i)
-			ft := f.Type
+			ft := findFinalType(f.Type)
 
-			var name string
-			if name = getFieldName(f); len(name) == 0 {
+			name, skip := getFieldName(f)
+			if skip || len(name) == 0 {
 				continue
 			}
 
@@ -116,7 +134,9 @@ func parseFieldsFromType(typ reflect.Type) []*field {
 			}
 
 			if canString || canConvert {
-				res = append(res, &field{name: name, idx: i, stringable: canString})
+				res = append(res, &field{name: name, idx: append(idx, i), stringable: canString})
+			} else if ft.Kind() == reflect.Struct && f.Anonymous {
+				res = append(res, parseFieldsFromType(ft, append(idx, i))...)
 			}
 		}
 	}
@@ -124,9 +144,9 @@ func parseFieldsFromType(typ reflect.Type) []*field {
 	return res
 }
 
-func getFieldName(field reflect.StructField) string {
+// getFieldName returns a struct field's name according to field's tag.
+func getFieldName(field reflect.StructField) (v string, skip bool) {
 	var ok bool
-	var v string
 
 	for _, tag := range tags {
 		v, ok = field.Tag.Lookup(tag)
@@ -136,14 +156,16 @@ func getFieldName(field reflect.StructField) string {
 	}
 
 	if !ok {
-		return field.Name
+		v = field.Name
+		return
 	}
 
 	if v == "-" {
-		return ""
+		return "", true
 	}
 
-	return strings.Split(v, ",")[0]
+	v = strings.Split(v, ",")[0]
+	return
 }
 
 func findFinalType(typ reflect.Type) reflect.Type {
@@ -153,6 +175,7 @@ func findFinalType(typ reflect.Type) reflect.Type {
 	return typ
 }
 
+// isStringable checks if a type is string or implements stringable interface.
 func isStringable(typ reflect.Type) bool {
 	if typ.Kind() == reflect.String {
 		return true
@@ -169,6 +192,7 @@ func isStringable(typ reflect.Type) bool {
 	return false
 }
 
+// isConvertable checks if a type can be converted to string.
 func isConvertable(typ reflect.Type) bool {
 	typ = findFinalType(typ)
 

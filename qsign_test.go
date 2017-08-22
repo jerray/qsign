@@ -4,6 +4,20 @@ import (
 	"testing"
 )
 
+type weixinPayApp struct {
+	AppID string `qsign:"appId"`
+}
+
+type weixinPayPackage struct {
+	// used to test nested struct
+	*weixinPayApp
+	TimeStamp int64  `qsign:"timeStamp"`
+	NonceStr  string `qsign:"-"`
+	Package   string `qsign:"package"`
+	SignType  string `qsign:"signType"`
+	PaySign   string `qsign:"paySign"`
+}
+
 func TestQsignSetDelimiter(t *testing.T) {
 	q := NewQsign(&Options{})
 	cases := []string{",", "|", "#", "&"}
@@ -41,20 +55,13 @@ func TestQsignDigest(t *testing.T) {
 			expect: "",
 		},
 		{
-			input: struct {
-				AppID     string `qsign:"appId"`
-				TimeStamp int64  `qsign:"timeStamp"`
-				NonceStr  string `qsign:"-"`
-				Package   string `qsign:"package"`
-				SignType  string `qsign:"signType"`
-				PaySign   string `qsign:"paySign"`
-			}{
-				AppID:     "wx6cfc34d48f33effe",
-				TimeStamp: 1503117550,
-				NonceStr:  "9446",
-				Package:   "prepay_id=wx20170819124333185b7b54140976921757",
-				SignType:  "",
-				PaySign:   "5C082C2524C0407B61053F82C584B527",
+			input: weixinPayPackage{
+				weixinPayApp: &weixinPayApp{AppID: "wx6cfc34d48f33effe"},
+				TimeStamp:    1503117550,
+				NonceStr:     "9446",
+				Package:      "prepay_id=wx20170819124333185b7b54140976921757",
+				SignType:     "",
+				PaySign:      "5C082C2524C0407B61053F82C584B527",
 			},
 			expect: "appId=wx6cfc34d48f33effe&package=prepay_id=wx20170819124333185b7b54140976921757&paySign=5C082C2524C0407B61053F82C584B527&timeStamp=1503117550",
 		},
@@ -102,20 +109,13 @@ func TestQsignSign(t *testing.T) {
 			expect: "d41d8cd98f00b204e9800998ecf8427e",
 		},
 		{
-			input: struct {
-				AppID     string `qsign:"appId"`
-				TimeStamp int64  `qsign:"timeStamp"`
-				NonceStr  string `qsign:"-"`
-				Package   string `qsign:"package"`
-				SignType  string `qsign:"signType"`
-				PaySign   string `qsign:"paySign"`
-			}{
-				AppID:     "wx6cfc34d48f33effe",
-				TimeStamp: 1503117550,
-				NonceStr:  "9446",
-				Package:   "prepay_id=wx20170819124333185b7b54140976921757",
-				SignType:  "MD5",
-				PaySign:   "5C082C2524C0407B61053F82C584B527",
+			input: weixinPayPackage{
+				weixinPayApp: &weixinPayApp{AppID: "wx6cfc34d48f33effe"},
+				TimeStamp:    1503117550,
+				NonceStr:     "9446",
+				Package:      "prepay_id=wx20170819124333185b7b54140976921757",
+				SignType:     "MD5",
+				PaySign:      "5C082C2524C0407B61053F82C584B527",
 			},
 			expect: "3061a228d86f9fe42c3f260591ce4865",
 		},

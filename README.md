@@ -80,7 +80,7 @@ fmt.Printf("%s", string(signature))
 
 ## Limitations
 
-Struct, Array and Slice types of field are not supported.
+Array and Slice types of field are not supported.
 But if a field's type has a method `String() string`, Qsign will treat it as string field.
 
 ## License

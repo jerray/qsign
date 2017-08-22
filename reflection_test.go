@@ -11,13 +11,18 @@ func (s myString) String() string {
 	return string(s)
 }
 
+type nestedStructForTest struct {
+	Json string `json:"support_json_tag,omitempty"`
+}
+
 type structTypeForTest struct {
 	Name  string
 	Value int64   `qsign:"value"`
 	Skip  bool    `qsign:"-"`
 	Addr  *string `qsign:"address"`
 	MyStr myString
-	Json  string `json:"support_json_tag,omitempty"`
+	nestedStructForTest
+	namedStruct nestedStructForTest // named struct field will be ignored
 }
 
 func TestReflectionIsStringable(t *testing.T) {
@@ -78,7 +83,7 @@ func TestReflectionGetStringValue(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		actual := getStringValue(c.input, c.isStringable)
+		actual := getStringValue(c.input, []int{}, c.isStringable)
 		if actual != c.expect {
 			t.Errorf("expect index %d value is `%s`, actual is `%s`", i, actual)
 		}
@@ -113,21 +118,25 @@ func TestReflectionGetFieldName(t *testing.T) {
 
 	typ := reflect.TypeOf(s)
 	cases := []struct {
-		input  reflect.StructField
-		expect string
+		input      reflect.StructField
+		expect     string
+		shouldSkip bool
 	}{
-		{typ.Field(0), "Name"},
-		{typ.Field(1), "value"},
-		{typ.Field(2), ""},
-		{typ.Field(3), "address"},
-		{typ.Field(4), "MyStr"},
-		{typ.Field(5), "support_json_tag"},
+		{typ.Field(0), "Name", false},
+		{typ.Field(1), "value", false},
+		{typ.Field(2), "", true},
+		{typ.Field(3), "address", false},
+		{typ.Field(4), "MyStr", false},
+		{typ.Field(5), "nestedStructForTest", false},
 	}
 
 	for _, c := range cases {
-		actual := getFieldName(c.input)
+		actual, skip := getFieldName(c.input)
 		if actual != c.expect {
 			t.Errorf("expect field name is `%s`, actual is `%s`", c.expect, actual)
+		}
+		if skip != c.shouldSkip {
+			t.Errorf("field `%s` skip flag expect %s, actual is %s", c.input.Name, c.shouldSkip, skip)
 		}
 	}
 }
@@ -135,14 +144,14 @@ func TestReflectionGetFieldName(t *testing.T) {
 func TestReflectionParseFieldsFromType(t *testing.T) {
 	input := structTypeForTest{}
 	expect := []*field{
-		&field{name: "Name", idx: 0, stringable: true},
-		&field{name: "value", idx: 1, stringable: false},
-		&field{name: "address", idx: 3, stringable: true},
-		&field{name: "MyStr", idx: 4, stringable: true},
-		&field{name: "support_json_tag", idx: 5, stringable: true},
+		&field{name: "Name", idx: []int{0}, stringable: true},
+		&field{name: "value", idx: []int{1}, stringable: false},
+		&field{name: "address", idx: []int{3}, stringable: true},
+		&field{name: "MyStr", idx: []int{4}, stringable: true},
+		&field{name: "support_json_tag", idx: []int{5, 0}, stringable: true},
 	}
 
-	actual := parseFieldsFromType(reflect.TypeOf(input))
+	actual := parseFieldsFromType(reflect.TypeOf(input), []int{})
 	if !reflect.DeepEqual(actual, expect) {
 		t.Errorf("expect parse result equals, expect %#v, actual %#v", expect, actual)
 	}
@@ -151,11 +160,11 @@ func TestReflectionParseFieldsFromType(t *testing.T) {
 func TestReflectionParseStruct(t *testing.T) {
 	input := structTypeForTest{}
 	expect := []*field{
-		&field{name: "MyStr", idx: 4, stringable: true},
-		&field{name: "Name", idx: 0, stringable: true},
-		&field{name: "address", idx: 3, stringable: true},
-		&field{name: "support_json_tag", idx: 5, stringable: true},
-		&field{name: "value", idx: 1, stringable: false},
+		&field{name: "MyStr", idx: []int{4}, stringable: true},
+		&field{name: "Name", idx: []int{0}, stringable: true},
+		&field{name: "address", idx: []int{3}, stringable: true},
+		&field{name: "support_json_tag", idx: []int{5, 0}, stringable: true},
+		&field{name: "value", idx: []int{1}, stringable: false},
 	}
 
 	typ := reflect.TypeOf(input)
@@ -183,24 +192,68 @@ func TestReflectionGetStructValues(t *testing.T) {
 	var s myString = "this is my string var"
 	var realString string = "this is a string type var"
 
-	input := structTypeForTest{
-		Name:  "",
-		Value: 7,
-		Skip:  true,
-		Addr:  &realString,
-		MyStr: s,
+	cases := []struct {
+		input  interface{}
+		expect []*field
+	}{
+		{
+			input:  (*structTypeForTest)(nil),
+			expect: []*field{},
+		},
+		{
+			input:  nil,
+			expect: []*field{},
+		},
+		{
+			input: structTypeForTest{
+				Name:  "",
+				Value: 7,
+				Skip:  true,
+				Addr:  &realString,
+				MyStr: s,
+				nestedStructForTest: nestedStructForTest{
+					Json: "nested",
+				},
+				namedStruct: nestedStructForTest{
+					Json: "ignored",
+				},
+			},
+			expect: []*field{
+				&field{name: "MyStr", value: s.String()},
+				&field{name: "Name", value: ""},
+				&field{name: "address", value: realString},
+				&field{name: "support_json_tag", value: "nested"},
+				&field{name: "value", value: "7"},
+			},
+		},
+		{
+			input: &structTypeForTest{
+				Name:  "",
+				Value: 7,
+				Skip:  true,
+				Addr:  &realString,
+				MyStr: s,
+				nestedStructForTest: nestedStructForTest{
+					Json: "nested",
+				},
+				namedStruct: nestedStructForTest{
+					Json: "ignored",
+				},
+			},
+			expect: []*field{
+				&field{name: "MyStr", value: s.String()},
+				&field{name: "Name", value: ""},
+				&field{name: "address", value: realString},
+				&field{name: "support_json_tag", value: "nested"},
+				&field{name: "value", value: "7"},
+			},
+		},
 	}
 
-	expect := []*field{
-		&field{name: "MyStr", value: s.String()},
-		&field{name: "Name", value: input.Name},
-		&field{name: "address", value: realString},
-		&field{name: "support_json_tag", value: ""},
-		&field{name: "value", value: "7"},
-	}
-
-	actual := getStructValues(input)
-	if !reflect.DeepEqual(actual, expect) {
-		t.Errorf("expect parse result equals, expect %#v, actual %#v", expect, actual)
+	for _, c := range cases {
+		actual := getStructValues(c.input)
+		if !reflect.DeepEqual(actual, c.expect) {
+			t.Errorf("expect parse result equals, expect %#v, actual %#v", c.expect, actual)
+		}
 	}
 }
