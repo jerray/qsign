@@ -4,4 +4,8 @@ go:
   - 1.8.x
   - master
 
-script: go test -v
+script:
+  - make test
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash) -f coverage.out

@@ -2,7 +2,7 @@ simple-test:
 	@go test
 
 test:
-	@go test -race -coverprofile=coverage.out
+	@go test -race -coverprofile=coverage.out -covermode=atomic
 
 build:
 	@go build -race

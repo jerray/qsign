@@ -2,6 +2,7 @@
 
 [![Build Status](https://travis-ci.org/jerray/qsign.svg?branch=master)](https://travis-ci.org/jerray/qsign)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jerray/qsign)](https://goreportcard.com/report/github.com/jerray/qsign)
+[![codecov](https://codecov.io/gh/jerray/qsign/branch/master/graph/badge.svg)](https://codecov.io/gh/jerray/qsign)
 
 Generate signature for Golang struct value.
 
