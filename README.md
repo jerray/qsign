@@ -1,6 +1,7 @@
 # Qsign
 
 [![Build Status](https://travis-ci.org/jerray/qsign.svg?branch=master)](https://travis-ci.org/jerray/qsign)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jerray/qsign)](https://goreportcard.com/report/github.com/jerray/qsign)
 
 Generate signature for Golang struct value.
 

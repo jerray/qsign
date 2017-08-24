@@ -4,6 +4,7 @@ import (
 	"bytes"
 )
 
+// Qsign is the signer which signs structs.
 type Qsign struct {
 	prefixGenerator Generator
 	suffixGenerator Generator

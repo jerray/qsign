@@ -7,6 +7,12 @@ test:
 build:
 	@go build -race
 
+lint:
+	@golint
+
+fmt:
+	@gofmt -s -w *.go
+
 watch:
 	@watchman-make -p '*.go' -t simple-test
 

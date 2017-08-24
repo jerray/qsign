@@ -70,18 +70,18 @@ func TestQsignDigest(t *testing.T) {
 				Action          string
 				Nonce           int
 				Region          string
-				SecretId        string
+				SecretID        string `qsign:"SecretId"`
 				SignatureMethod string
 				Timestamp       string
-				instanceIds_0   string
+				instanceIds0    string `qsign:"instanceIds_0"`
 			}{
 				Action:          "DescribeInstances",
 				Nonce:           11886,
 				Region:          "gz",
-				SecretId:        "AKIDz8krbsJ5yKBZQpn74WFkmLPx3gnPhESA",
+				SecretID:        "AKIDz8krbsJ5yKBZQpn74WFkmLPx3gnPhESA",
 				SignatureMethod: "HmacSHA256",
 				Timestamp:       "1465185768",
-				instanceIds_0:   "ins-09dx96dg",
+				instanceIds0:    "ins-09dx96dg",
 			},
 			expect: "Action=DescribeInstances&Nonce=11886&Region=gz&SecretId=AKIDz8krbsJ5yKBZQpn74WFkmLPx3gnPhESA&SignatureMethod=HmacSHA256&Timestamp=1465185768&instanceIds_0=ins-09dx96dg",
 		},
@@ -124,18 +124,18 @@ func TestQsignSign(t *testing.T) {
 				Action          string
 				Nonce           int
 				Region          string
-				SecretId        string
+				SecretID        string `qsign:"SecretId"`
 				SignatureMethod string
 				Timestamp       string
-				instanceIds_0   string
+				instanceIds0    string `qsign:"instanceIds_0"`
 			}{
 				Action:          "DescribeInstances",
 				Nonce:           11886,
 				Region:          "gz",
-				SecretId:        "AKIDz8krbsJ5yKBZQpn74WFkmLPx3gnPhESA",
+				SecretID:        "AKIDz8krbsJ5yKBZQpn74WFkmLPx3gnPhESA",
 				SignatureMethod: "HmacSHA256",
 				Timestamp:       "1465185768",
-				instanceIds_0:   "ins-09dx96dg",
+				instanceIds0:    "ins-09dx96dg",
 			},
 			expect: "db10eadbfe3f5a84a344020d73577b52",
 		},
