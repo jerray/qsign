@@ -48,7 +48,7 @@ md5(B)
 
 Qsign implements the signing method mentioned before. It uses reflection to get structs' fields, determines which
 fields will appear in the digest. By default field name is used as key. You can asign a "qsign" tag to that field
-to change key string or ignore that field. Qsign also support "json", "yaml" and "xml" tags optionally.
+to change key string or ignore that field. Qsign also support "json", "yaml", "xml" and "form" tags optionally.
 
 Tag "qsign" has the highest priority. A field with tag `qsign:"-"` will be ignored.
 

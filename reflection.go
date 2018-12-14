@@ -26,7 +26,7 @@ type stringable interface {
 }
 
 var (
-	tags             = []string{"qsign", "json", "yaml", "xml"}
+	tags             = []string{"qsign", "json", "yaml", "xml", "form"}
 	typeInfoLock     sync.RWMutex
 	typeInfoMap      = make(map[reflect.Type][]*field)
 	typeOfStringable = reflect.TypeOf((*stringable)(nil)).Elem()
