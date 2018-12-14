@@ -17,6 +17,10 @@ func defaultFilter(key, value string) bool {
 	return len(value) > 0
 }
 
+type Marshaler interface {
+	MarshalQsign() string
+}
+
 // Hasher is function returns hash.Hash. By default, Qsign uses md5 hash. You can provide
 // your own hash interface instead.
 type Hasher func() hash.Hash

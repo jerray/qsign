@@ -11,18 +11,61 @@ func (s myString) String() string {
 	return string(s)
 }
 
+type myMarshaler struct {
+	Name string
+}
+
+func (m *myMarshaler) MarshalQsign() string {
+	return m.Name
+}
+
 type nestedStructForTest struct {
 	JSON string `json:"support_json_tag,omitempty"`
 }
 
 type structTypeForTest struct {
-	Name  string
-	Value int64   `qsign:"value"`
-	Skip  bool    `qsign:"-"`
-	Addr  *string `qsign:"address"`
-	MyStr myString
+	Name    string
+	Value   int64        `qsign:"value"`
+	Skip    bool         `qsign:"-"`
+	Addr    *string      `qsign:"address"`
+	Marshal *myMarshaler `qsign:"marshal"`
+	MyStr   myString
 	nestedStructForTest
 	namedStruct nestedStructForTest // named struct field will be ignored
+}
+
+func TestReflectionIsMarshalable(t *testing.T) {
+	var s myString = "this is my string var"
+	var realString = "this is a string type var"
+	var m myMarshaler = myMarshaler{"ok"}
+
+	cases := []struct {
+		input  reflect.Type
+		expect bool
+	}{
+		{reflect.TypeOf([3]int{1, 2, 3}), false},
+		{reflect.TypeOf([]int{}), false},
+		{reflect.TypeOf(struct{}{}), false},
+		{reflect.TypeOf(0), false},
+		{reflect.TypeOf(uint(0)), false},
+		{reflect.TypeOf(0.0), false},
+		{reflect.TypeOf(false), false},
+		{reflect.TypeOf(structTypeForTest{}), false},
+		{reflect.TypeOf(""), false},
+		{reflect.TypeOf(&realString), false},
+		{reflect.TypeOf(realString), false},
+		{reflect.TypeOf(&s), false},
+		{reflect.TypeOf(s), false},
+		{reflect.TypeOf(m), true},
+		{reflect.TypeOf(&m), true},
+	}
+
+	for _, c := range cases {
+		actual := isMarshalable(c.input)
+		if actual != c.expect {
+			t.Errorf("expect type `%v` is not marshalable", c.input)
+		}
+	}
 }
 
 func TestReflectionIsStringable(t *testing.T) {
@@ -62,28 +105,30 @@ func TestReflectionGetStringValue(t *testing.T) {
 	var nilString *string
 
 	cases := []struct {
-		input        reflect.Value
-		isStringable bool
-		expect       string
+		input         reflect.Value
+		isStringable  bool
+		isMarshalable bool
+		expect        string
 	}{
-		{reflect.ValueOf([3]int{1, 2, 3}), false, ""},
-		{reflect.ValueOf([]int{}), false, ""},
-		{reflect.ValueOf(struct{}{}), false, ""},
-		{reflect.ValueOf(int(0)), false, "0"},
-		{reflect.ValueOf(uint(1)), false, "1"},
-		{reflect.ValueOf(0.1), false, "0.1"},
-		{reflect.ValueOf(0.0), false, "0"},
-		{reflect.ValueOf(false), false, "false"},
-		{reflect.ValueOf(""), true, ""},
-		{reflect.ValueOf(&realString), true, realString},
-		{reflect.ValueOf(realString), true, realString},
-		{reflect.ValueOf(&s), true, s.String()},
-		{reflect.ValueOf(s), true, s.String()},
-		{reflect.ValueOf(nilString), true, ""},
+		{reflect.ValueOf([3]int{1, 2, 3}), false, false, ""},
+		{reflect.ValueOf([]int{}), false, false, ""},
+		{reflect.ValueOf(struct{}{}), false, false, ""},
+		{reflect.ValueOf(int(0)), false, false, "0"},
+		{reflect.ValueOf(uint(1)), false, false, "1"},
+		{reflect.ValueOf(0.1), false, false, "0.1"},
+		{reflect.ValueOf(0.0), false, false, "0"},
+		{reflect.ValueOf(false), false, false, "false"},
+		{reflect.ValueOf(""), true, false, ""},
+		{reflect.ValueOf(&realString), true, false, realString},
+		{reflect.ValueOf(realString), true, false, realString},
+		{reflect.ValueOf(&s), true, false, s.String()},
+		{reflect.ValueOf(s), true, false, s.String()},
+		{reflect.ValueOf(nilString), true, false, ""},
+		{reflect.ValueOf(&myMarshaler{"qsign"}), false, true, "qsign"},
 	}
 
 	for i, c := range cases {
-		actual := getStringValue(c.input, []int{}, c.isStringable)
+		actual := getStringValue(c.input, []int{}, &conversion{stringable: c.isStringable, marshalable: c.isMarshalable})
 		if actual != c.expect {
 			t.Errorf("expect index %d value is `%s`, actual is `%s`", i, c.expect, actual)
 		}
@@ -126,8 +171,9 @@ func TestReflectionGetFieldName(t *testing.T) {
 		{typ.Field(1), "value", false},
 		{typ.Field(2), "", true},
 		{typ.Field(3), "address", false},
-		{typ.Field(4), "MyStr", false},
-		{typ.Field(5), "nestedStructForTest", false},
+		{typ.Field(4), "marshal", false},
+		{typ.Field(5), "MyStr", false},
+		{typ.Field(6), "nestedStructForTest", false},
 	}
 
 	for _, c := range cases {
@@ -144,11 +190,12 @@ func TestReflectionGetFieldName(t *testing.T) {
 func TestReflectionParseFieldsFromType(t *testing.T) {
 	input := structTypeForTest{}
 	expect := []*field{
-		{name: "Name", idx: []int{0}, stringable: true},
-		{name: "value", idx: []int{1}, stringable: false},
-		{name: "address", idx: []int{3}, stringable: true},
-		{name: "MyStr", idx: []int{4}, stringable: true},
-		{name: "support_json_tag", idx: []int{5, 0}, stringable: true},
+		{name: "Name", idx: []int{0}, conv: conversion{stringable: true}},
+		{name: "value", idx: []int{1}, conv: conversion{stringable: false}},
+		{name: "address", idx: []int{3}, conv: conversion{stringable: true}},
+		{name: "marshal", idx: []int{4}, conv: conversion{marshalable: true}},
+		{name: "MyStr", idx: []int{5}, conv: conversion{stringable: true}},
+		{name: "support_json_tag", idx: []int{6, 0}, conv: conversion{stringable: true}},
 	}
 
 	actual := parseFieldsFromType(reflect.TypeOf(input), []int{})
@@ -160,11 +207,12 @@ func TestReflectionParseFieldsFromType(t *testing.T) {
 func TestReflectionParseStruct(t *testing.T) {
 	input := structTypeForTest{}
 	expect := []*field{
-		{name: "MyStr", idx: []int{4}, stringable: true},
-		{name: "Name", idx: []int{0}, stringable: true},
-		{name: "address", idx: []int{3}, stringable: true},
-		{name: "support_json_tag", idx: []int{5, 0}, stringable: true},
-		{name: "value", idx: []int{1}, stringable: false},
+		{name: "MyStr", idx: []int{5}, conv: conversion{stringable: true}},
+		{name: "Name", idx: []int{0}, conv: conversion{stringable: true}},
+		{name: "address", idx: []int{3}, conv: conversion{stringable: true}},
+		{name: "marshal", idx: []int{4}, conv: conversion{marshalable: true}},
+		{name: "support_json_tag", idx: []int{6, 0}, conv: conversion{stringable: true}},
+		{name: "value", idx: []int{1}, conv: conversion{stringable: false}},
 	}
 
 	typ := reflect.TypeOf(input)
@@ -222,6 +270,7 @@ func TestReflectionGetStructValues(t *testing.T) {
 				{name: "MyStr", value: s.String()},
 				{name: "Name", value: ""},
 				{name: "address", value: realString},
+				{name: "marshal", value: ""},
 				{name: "support_json_tag", value: "nested"},
 				{name: "value", value: "7"},
 			},
@@ -232,6 +281,9 @@ func TestReflectionGetStructValues(t *testing.T) {
 				Value: 7,
 				Skip:  true,
 				Addr:  &realString,
+				Marshal: &myMarshaler{
+					Name: "marshal",
+				},
 				MyStr: s,
 				nestedStructForTest: nestedStructForTest{
 					JSON: "nested",
@@ -244,6 +296,7 @@ func TestReflectionGetStructValues(t *testing.T) {
 				{name: "MyStr", value: s.String()},
 				{name: "Name", value: ""},
 				{name: "address", value: realString},
+				{name: "marshal", value: "marshal"},
 				{name: "support_json_tag", value: "nested"},
 				{name: "value", value: "7"},
 			},

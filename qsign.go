@@ -38,7 +38,7 @@ type Options struct {
 }
 
 // NewQsign returns a new *Qsign computing signature.
-func NewQsign(options *Options) *Qsign {
+func NewQsign(options Options) *Qsign {
 	filter := options.Filter
 	if filter == nil {
 		filter = defaultFilter

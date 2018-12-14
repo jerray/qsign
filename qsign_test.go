@@ -19,7 +19,7 @@ type weixinPayPackage struct {
 }
 
 func TestQsignSetDelimiter(t *testing.T) {
-	q := NewQsign(&Options{})
+	q := NewQsign(Options{})
 	cases := []string{",", "|", "#", "&"}
 	for _, c := range cases {
 		q.SetDelimiter(c)
@@ -31,7 +31,7 @@ func TestQsignSetDelimiter(t *testing.T) {
 }
 
 func TestQsignSetConnector(t *testing.T) {
-	q := NewQsign(&Options{})
+	q := NewQsign(Options{})
 	cases := []string{":", ">", "-", "_"}
 	for _, c := range cases {
 		q.SetConnector(c)
@@ -43,7 +43,7 @@ func TestQsignSetConnector(t *testing.T) {
 }
 
 func TestQsignDigest(t *testing.T) {
-	q := NewQsign(&Options{})
+	q := NewQsign(Options{})
 
 	cases := []struct {
 		input  interface{}
@@ -97,7 +97,7 @@ func TestQsignDigest(t *testing.T) {
 }
 
 func TestQsignSign(t *testing.T) {
-	q := NewQsign(&Options{})
+	q := NewQsign(Options{})
 
 	cases := []struct {
 		input  interface{}
@@ -199,7 +199,7 @@ func TestQsignPrefixSuffixGenerators(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		q := NewQsign(&Options{
+		q := NewQsign(Options{
 			PrefixGenerator: c.prefix,
 			SuffixGenerator: c.suffix,
 		})

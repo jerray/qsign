@@ -69,21 +69,53 @@ data := struct {
 	IgnoreMe:   "won't be used to generate digest",
 }
 
-q := qsign.NewQsign(&qsign.Options{
+q := qsign.NewQsign(qsign.Options{
 	SuffixGenerator: func() string {
 		return "&key=192006250b4c09247ec02edce69f6a2d"
 	},
 })
 
+// digest, _ := q.Digest(data)
+// fmt.Printf("%s\n", string(digest))
+// appid=wxd930ea5d5a258f4f&body=test&device_info=1000&mch_id=10000100&nonce_str=ibuaiVcKdpRxkhJA&key=192006250b4c09247ec02edce69f6a2d
+
 signature, _ := q.Sign(data)
-fmt.Printf("%s", string(signature))
+fmt.Printf("%s\n", string(signature))
 // 9a0a8659f005d6984697e2ca0a9cf3b7
 ```
 
 ## Limitations
 
 Array and Slice types of field are not supported.
-But if a field's type has a method `String() string`, Qsign will treat it as string field.
+
+But if a field type implements the `Marshaler`, Qsgin will use the result of function `MarshalQsgin() string`
+as value in the digest. Note, for using this feature, either the field or the struct must be addressable.
+For example:
+
+```go
+type MyType struct {
+	Key   string
+	Value string
+}
+
+func (m *MyType) MarshalQsign() string {
+	return fmt.Sprintf("%s->%s", m.Key, m.Value)
+}
+
+func main() {
+	data := &struct {
+		T MyType `qsign:"t"`
+	}{
+		T: MyType{"jerray", "qsign"},
+	}
+
+	q := qsign.NewQsign(qsign.Options{})
+
+	digest, _ := q.Digest(data)
+	fmt.Printf("%s\n", string(digest))
+	// t=jerray->qsign
+}
+```
 
 ## License
 

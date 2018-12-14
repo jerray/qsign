@@ -8,11 +8,16 @@ import (
 	"sync"
 )
 
+type conversion struct {
+	stringable  bool
+	marshalable bool
+}
+
 type field struct {
-	name       string
-	value      string
-	idx        []int
-	stringable bool
+	name  string
+	value string
+	idx   []int
+	conv  conversion
 }
 
 // stringable interface is used to check if a type has String() function.
@@ -25,6 +30,7 @@ var (
 	typeInfoLock     sync.RWMutex
 	typeInfoMap      = make(map[reflect.Type][]*field)
 	typeOfStringable = reflect.TypeOf((*stringable)(nil)).Elem()
+	typeOfMarshaler  = reflect.TypeOf((*Marshaler)(nil)).Elem()
 )
 
 // getStructValues parses interface v, returns its field list with fields' string value.
@@ -46,7 +52,7 @@ func getStructValues(v interface{}) (vs []*field) {
 	fields := parseStruct(val.Type())
 
 	for _, f := range fields {
-		value := getStringValue(val, f.idx, f.stringable)
+		value := getStringValue(val, f.idx, &f.conv)
 		vs = append(vs, &field{
 			name:  f.name,
 			value: value,
@@ -56,9 +62,21 @@ func getStructValues(v interface{}) (vs []*field) {
 	return
 }
 
+func marshalValue(val reflect.Value) string {
+	if v, ok := val.Interface().(Marshaler); ok {
+		return v.MarshalQsign()
+	}
+
+	if !val.CanAddr() {
+		return ""
+	}
+
+	return marshalValue(val.Addr())
+}
+
 // getStringValue returns the string value of val. If depth is great than 0, val must be a struct,
 // it will find string value from the next depth level.
-func getStringValue(val reflect.Value, depth []int, isStringable bool) (r string) {
+func getStringValue(val reflect.Value, depth []int, conv *conversion) (r string) {
 	for val.Kind() == reflect.Interface || val.Kind() == reflect.Ptr {
 		if val.IsNil() {
 			return r
@@ -67,10 +85,15 @@ func getStringValue(val reflect.Value, depth []int, isStringable bool) (r string
 	}
 
 	if len(depth) > 0 {
-		return getStringValue(val.Field(depth[0]), depth[1:], isStringable)
+		return getStringValue(val.Field(depth[0]), depth[1:], conv)
 	}
 
-	if isStringable {
+	// Marshaler has higher priority
+	if conv.marshalable {
+		return marshalValue(val)
+	}
+
+	if conv.stringable {
 		return val.String()
 	}
 
@@ -124,7 +147,11 @@ func parseFieldsFromType(typ reflect.Type, idx []int) []*field {
 				continue
 			}
 
-			var canString, canConvert bool
+			var canMarshal, canString, canConvert bool
+			if isMarshalable(ft) {
+				canMarshal = true
+			}
+
 			if isStringable(ft) {
 				canString = true
 			}
@@ -133,8 +160,15 @@ func parseFieldsFromType(typ reflect.Type, idx []int) []*field {
 				canConvert = true
 			}
 
-			if canString || canConvert {
-				res = append(res, &field{name: name, idx: append(idx, i), stringable: canString})
+			if canMarshal || canString || canConvert {
+				res = append(res, &field{
+					name: name,
+					idx:  append(idx, i),
+					conv: conversion{
+						stringable:  canString,
+						marshalable: canMarshal,
+					},
+				})
 			} else if ft.Kind() == reflect.Struct && f.Anonymous {
 				res = append(res, parseFieldsFromType(ft, append(idx, i))...)
 			}
@@ -187,6 +221,30 @@ func isStringable(typ reflect.Type) bool {
 
 	if typ.Kind() == reflect.Interface || typ.Kind() == reflect.Ptr {
 		return isStringable(typ.Elem())
+	}
+
+	return false
+}
+
+// isMarshalable checks if a type implements Marshaler interface.
+func isMarshalable(typ reflect.Type) bool {
+	return isImplements(typ, typeOfMarshaler)
+}
+
+// isImplements checks if typ implements match's interface.
+func isImplements(typ, match reflect.Type) bool {
+	if typ.Implements(match) {
+		return true
+	}
+
+	if typ.Kind() != reflect.Ptr {
+		if reflect.PtrTo(typ).Implements(match) {
+			return true
+		}
+	}
+
+	if typ.Kind() == reflect.Interface || typ.Kind() == reflect.Ptr {
+		return isImplements(typ.Elem(), match)
 	}
 
 	return false
