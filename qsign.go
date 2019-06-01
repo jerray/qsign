@@ -2,6 +2,7 @@ package qsign
 
 import (
 	"bytes"
+	"strings"
 )
 
 // Qsign is the signer which signs structs.
@@ -104,20 +105,22 @@ func (q *Qsign) Digest(v interface{}) ([]byte, error) {
 	}
 
 	vs := getStructValues(v)
-	l := len(vs) - 1
-	for i, f := range vs {
+
+	pairs := []string{}
+	for _, f := range vs {
 		if !q.filter(f.name, f.value) {
 			continue
 		}
 
+		var buf strings.Builder
 		buf.WriteString(f.name)
 		buf.WriteString(q.connector)
 		buf.WriteString(f.value)
 
-		if i != l {
-			buf.WriteString(q.delimiter)
-		}
+		pairs = append(pairs, buf.String())
 	}
+	connected := strings.Join(pairs, q.delimiter)
+	buf.WriteString(connected)
 
 	if q.suffixGenerator != nil {
 		if _, err := buf.WriteString(q.suffixGenerator()); err != nil {
